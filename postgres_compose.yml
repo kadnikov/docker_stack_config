@@ -1,0 +1,56 @@
+version: "3.3"
+# Секция сервисов
+# Начинаем с Postgres
+services:
+  postgres:
+    image: postgres:9.6.6
+    secrets:
+      - POSTGRES_PASSWORD_FILE
+    environment:
+      - POSTGRES_PASSWORD_FILE = /run/secrets/POSTGRES_PASSWORD_FILE
+      - POSTGRES_DB=doccloud
+    configs:
+      - source: POSTGRES_CREATE_USER
+        target: /docker-entrypoint-initdb.d/01-create-user.sql
+        uid: '999'
+        gid: '999'
+      - source: POSTGRES_CREATE_DB
+        target: /docker-entrypoint-initdb.d/02-create-db.sql
+        uid: '999'
+        gid: '999'
+      - source: POSTGRES_LOAD_DATA
+        target: /docker-entrypoint-initdb.d/03-load-data.sql
+        uid: '999'
+        gid: '999'
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /opt/doccloud/data/pgdata:/var/lib/postgresql/data
+      - /opt/doccloud/data/admin:/var/lib/postgresql/admin
+    networks:
+      - nw_doccloud_db
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.labels.db_rw == yes
+          
+# Секция конфигураций, помещаем конфиги Postgres, Apache и Tomcat
+configs:
+  POSTGRES_CREATE_USER:
+    external: true
+  POSTGRES_CREATE_DB:
+    external: true
+  POSTGRES_LOAD_DATA:
+    external: true
+
+# Секция “секретов”, помещаем пароли и название БД и 
+secrets:
+  POSTGRES_PASSWORD_FILE:
+    external: true
+
+# Секция сети, описываем сети
+networks:
+  nw_doccloud_www:
+    external: true
+  nw_doccloud_app:
+  nw_doccloud_db:
