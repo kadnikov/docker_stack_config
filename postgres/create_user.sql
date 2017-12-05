@@ -1,0 +1,1 @@
+CREATE ROLE doccloud LOGIN PASSWORD 'doccloud';
