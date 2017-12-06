@@ -33,7 +33,21 @@ services:
       placement:
         constraints:
           - node.labels.db_rw == yes
-          
+  pgadmin:
+    image: thajeztah/pgadmin4
+    ports:
+      - "5050:5050"
+    networks:
+      - nw_doccloud_www
+      - nw_doccloud_db
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /opt/doccloud/pgadmin:/pgadmin
+    deploy:
+       replicas: 0
+       placement:
+         constraints:
+           - node.labels.db_rw == yes
 # Секция конфигураций, помещаем конфиги Postgres, Apache и Tomcat
 configs:
   POSTGRES_CREATE_USER:

@@ -19,6 +19,7 @@ create table if not exists documents (
   sys_readers text[],
   sys_editors text[],
   sys_folders text[],
+  sys_base_type text,
   sys_type text,
   sys_version text,
   sys_parent text,
@@ -81,9 +82,9 @@ CREATE TABLE if not exists groups
     id text NOT NULL,
     title text,
     CONSTRAINT id_key PRIMARY KEY (id)
-)
+);
 
-CREATE TABLESPACE admin LOCATION '/var/lib/postgresql/9.6/main';
+CREATE TABLESPACE admin LOCATION '/var/lib/postgresql/admin';
 CREATE SEQUENCE IF NOT EXISTS system_id_seq;
 
 CREATE TABLE IF NOT EXISTS public.system
