@@ -84,6 +84,19 @@ CREATE TABLE if not exists groups
     CONSTRAINT id_key PRIMARY KEY (id)
 );
 
+GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE public.documents TO doccloud;
+GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE public.links TO doccloud;
+GRANT SELECT, UPDATE, INSERT ON TABLE public.users TO doccloud;
+GRANT SELECT, UPDATE, INSERT ON TABLE public.user_roles TO doccloud;
+GRANT SELECT, UPDATE, INSERT ON TABLE public.groups TO doccloud;
+GRANT SELECT, UPDATE, INSERT ON TABLE public.roles TO doccloud;
+
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY doc_policy ON documents
+    USING ((SELECT groups FROM users WHERE userid=current_setting('my.username')) && sys_readers)
+    WITH CHECK (sys_author = current_setting('my.username') OR sys_modifier = current_setting('my.username'));
+
 CREATE TABLESPACE admin LOCATION '/var/lib/postgresql/admin';
 CREATE SEQUENCE IF NOT EXISTS system_id_seq;
 
@@ -118,6 +131,7 @@ TABLESPACE admin;
 
 ALTER TABLE public.system
   OWNER TO postgres;
+  
 GRANT ALL ON TABLE public.system TO postgres;
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE public.system TO doccloud;
 

@@ -1,4 +1,56 @@
 version: "3.3"
+# Секция конфигураций, помещаем конфиги Postgres, Apache и Tomcat
+configs:
+  POSTGRES_CREATE_USER:
+    external: true
+  POSTGRES_CREATE_DB:
+    external: true
+  POSTGRES_LOAD_DATA:
+    external: true
+  APACHE2_HTTPD_CONF:
+    external: true
+
+# Секция “секретов”, помещаем пароли и название БД и 
+secrets:
+  POSTGRES_PASSWORD_FILE:
+    external: true
+  TOMCAT_CONTEXT_XML:
+    external: true
+
+# Секция сети, описываем сети
+networks:
+  nw_doccloud_www:
+    external: true
+  nw_doccloud_app:
+  nw_doccloud_db:
+
+# Секция томов, описываем тома для хранения данных на nfs сервере, заменить <addr> на адрес nfs сервера
+volumes:
+  data_vlm:
+    driver: local
+    driver_opts:
+#      type: nfs
+#      o: addr=<addr>,rw
+      o: bind
+      type: none
+      device: /opt/doccloud/files
+  apache2_vlm:
+    driver: local
+    driver_opts:
+#      type: nfs
+#      o: addr=<addr>,ro
+      o: bind
+      type: none
+      device: /opt/doccloud/apache2/htdocs
+  boot_vlm:
+    driver: local
+    driver_opts:
+#      type: nfs
+#      o: addr=<addr>,ro
+      o: bind
+      type: none
+      device: /opt/doccloud/boot/webapps
+
 # Секция сервисов
 # Начинаем с Postgres
 services:
@@ -7,7 +59,7 @@ services:
     secrets:
       - POSTGRES_PASSWORD_FILE
     environment:
-      - POSTGRES_PASSWORD_FILE = /run/secrets/POSTGRES_PASSWORD_FILE
+      - POSTGRES_PASSWORD_FILE=/run/secrets/POSTGRES_PASSWORD_FILE
       - POSTGRES_DB=doccloud
     configs:
       - source: POSTGRES_CREATE_USER
@@ -28,16 +80,20 @@ services:
       - /opt/doccloud/data/admin:/var/lib/postgresql/admin
     networks:
       - nw_doccloud_db
+      - nw_doccloud_app
     deploy:
       mode: global
       placement:
         constraints:
           - node.labels.db_rw == yes
+
+#PGAdmin
   pgadmin:
     image: thajeztah/pgadmin4
     ports:
       - "5050:5050"
     networks:
+# ??? подумать как лучше сделать
       - nw_doccloud_www
       - nw_doccloud_db
     volumes:
@@ -48,23 +104,74 @@ services:
        placement:
          constraints:
            - node.labels.db_rw == yes
-# Секция конфигураций, помещаем конфиги Postgres, Apache и Tomcat
-configs:
-  POSTGRES_CREATE_USER:
-    external: true
-  POSTGRES_CREATE_DB:
-    external: true
-  POSTGRES_LOAD_DATA:
-    external: true
 
-# Секция “секретов”, помещаем пароли и название БД и 
-secrets:
-  POSTGRES_PASSWORD_FILE:
-    external: true
+# Теперь Tomcat
+  tomcat:
+    image: tomcat:8.5.24-jre8
+    networks:
+      - nw_doccloud_www
+      - nw_doccloud_app
+    environment:
+      - CATALINA_OPTS=-server -Xms512m -Xmx1024m -XX:MaxMetaspaceSize=512m -XX:+DisableExplicitGC
+    secrets:
+      - source: TOMCAT_CONTEXT_XML
+        target: /usr/local/tomcat/conf/context.xml
+#    configs:
+#      - /data/doccloud/config/tomcat/conf/tomcat-users.xml:/usr/local/tomcat/conf/tomcat-users.xml:ro
+#      - /data/doccloud/config/tomcat/conf/server.xml:/usr/local/tomcat/conf/server.xml:ro      
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /opt/doccloud/tomcat/lib/postgresql-9.4.1210.jar:/usr/local/tomcat/lib/postgresql.jar:ro
+      - /opt/doccloud/tomcat/webapps/jooq.war:/usr/local/tomcat/webapps/jooq.war:ro
+      - /opt/doccloud/tomcat/webapps/iaadmin.war:/usr/local/tomcat/webapps/iaadmin.war:ro
+      - data_vlm:/opt/doccloud/data/
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.tomcat == yes
+      update_config:
+        delay: 10s
+      resources:
+        reservations:
+          memory: 1536M
 
-# Секция сети, описываем сети
-networks:
-  nw_doccloud_www:
-    external: true
-  nw_doccloud_app:
-  nw_doccloud_db:
+  boot:
+    image: openjdk:8-jre
+    networks:
+      - nw_doccloud_app
+      - nw_doccloud_db
+      - nw_doccloud_www
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - boot_vlm:/webapps/:ro
+      - data_vlm:/opt/doccloud/data/
+    command: java -jar /webapps/jooq_spring_boot.jar
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.boot == yes
+      update_config:
+        delay: 10s
+#      resources:
+#        reservations:
+#          memory: 1536M
+
+  apache2:
+    image: httpd:2.4.29
+    ports:
+      - "80:80"
+    networks:
+      - nw_doccloud_www
+    configs:
+      - source: APACHE2_HTTPD_CONF
+        target: /usr/local/apache2/conf/httpd.conf
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - apache2_vlm:/usr/local/apache2/htdocs/:ro
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.apache2 == yes

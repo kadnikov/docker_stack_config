@@ -1,0 +1,21 @@
+[Unit]
+Description=Portainer
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStartPre=-/usr/bin/docker kill portainer
+ExecStartPre=-/usr/bin/docker rm portainer
+ExecStartPre=-/usr/bin/docker pull portainer/portainer
+ExecStart=/usr/bin/docker run \
+        --name portainer \
+        -p 9000:9000 \
+        -v /data/containers/portainer:/data \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v /etc/localtime:/etc/localtime \
+        portainer/portainer
+ExecStop=-/usr/bin/docker stop -t 10 portainer
+
+[Install]
+WantedBy=multi-user.target
