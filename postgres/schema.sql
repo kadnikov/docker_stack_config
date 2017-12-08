@@ -135,6 +135,13 @@ ALTER TABLE public.system
 GRANT ALL ON TABLE public.system TO postgres;
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE public.system TO doccloud;
 
+GRANT USAGE, SELECT, UPDATE ON SEQUENCE public.documents_id_seq TO doccloud;
+GRANT USAGE, SELECT, UPDATE ON SEQUENCE public.system_id_seq TO doccloud;
+
+ALTER SEQUENCE documents_id_seq RESTART WITH 11;
+ALTER SEQUENCE system_id_seq RESTART WITH 20;
+
+
 CREATE INDEX type_index
   ON public.system
   USING btree
